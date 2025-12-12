@@ -1,1 +1,388 @@
-ASD
+local MarketplaceService = game:GetService("MarketplaceService")
+local success, info = pcall(function()
+	return MarketplaceService:GetProductInfo(game.PlaceId)
+end)
+
+local gameName = "Unknown Game"
+if success and info and info.Name then
+	gameName = info.Name
+end
+
+
+local Lighting = game:GetService("Lighting")
+local originalClockTime = Lighting.ClockTime
+local originalBrightness = Lighting.Brightness
+local originalAmbient = Lighting.Ambient
+local originalGlobalShadows = Lighting.GlobalShadows
+
+
+local Rayfield = loadstring(game:HttpGet("https://sirius.menu/rayfield"))()
+
+
+local Window = Rayfield:CreateWindow({
+	Name = "Script for " .. gameName,
+	LoadingTitle = "Rayfield Interface Suite",
+	LoadingSubtitle = "by Ricardito",
+	ShowText = "Rayfield",
+	Theme = "Default",
+	ToggleUIKeybind = "K",
+	DisableRayfieldPrompts = false,
+	DisableBuildWarnings = false,
+
+	ConfigurationSaving = {
+		Enabled = true,
+		FolderName = nil,
+		FileName = "Big Hub"
+	},
+
+	Discord = {
+		Enabled = true,
+		Invite = "sDkYFJ6S",
+		RememberJoins = true
+	},
+
+	KeySystem = true,
+	KeySettings = {
+		Title = "Script for " .. gameName .. " Key System",
+		Subtitle = "Acceso restringido",
+		Note = "Únete al servidor de Discord para obtener la key",
+		FileName = "BaboonTagXKey",
+		SaveKey = false,
+		GrabKeyFromSite = false,
+		Key = {"RicardoKey123"}
+	}
+})
+
+local TabMain = Window:CreateTab("Main", 4483362458)
+TabMain:CreateSection("Silent Aim")
+
+local SilentAimEnabled = false
+local SilentAimFOV = 120
+local SilentAimSmoothness = 8
+local ShowCircle = true
+local FOVCircle
+
+TabMain:CreateToggle({
+    Name = "Enable Silent Aim",
+    CurrentValue = false,
+    Flag = "SilentAim",
+    Callback = function(v)
+        SilentAimEnabled = v
+        if FOVCircle and FOVCircle.Parent then FOVCircle:Destroy() FOVCircle=nil end
+        if v and ShowCircle then
+            local PlayerGui = game.Players.LocalPlayer:WaitForChild("PlayerGui")
+            local FOVGui = Instance.new("ScreenGui")
+            FOVGui.Name = "FOVGui_Ricardo"
+            FOVGui.Parent = PlayerGui
+            FOVCircle = Instance.new("Frame", FOVGui)
+            FOVCircle.Size = UDim2.new(0, SilentAimFOV*2, 0, SilentAimFOV*2)
+            FOVCircle.AnchorPoint = Vector2.new(0.5,0.5)
+            FOVCircle.Position = UDim2.new(0.5,0,0.5,0)
+            FOVCircle.BackgroundTransparency = 1
+            local stroke = Instance.new("UIStroke", FOVCircle)
+            stroke.Thickness = 2
+            stroke.Color = Color3.fromRGB(0,200,255)
+            local corner = Instance.new("UICorner", FOVCircle)
+            corner.CornerRadius = UDim.new(1,0)
+        end
+    end
+})
+
+TabMain:CreateToggle({
+    Name = "Mostrar círculo",
+    CurrentValue = true,
+    Flag = "ShowCircle",
+    Callback = function(v)
+        ShowCircle = v
+        if not v and FOVCircle then FOVCircle:Destroy() FOVCircle=nil end
+    end
+})
+
+TabMain:CreateSlider({
+    Name = "Silent Aim FOV",
+    Range = {50,500},
+    Increment = 10,
+    Suffix = "px",
+    CurrentValue = SilentAimFOV,
+    Flag = "SilentAimFOV",
+    Callback = function(v) SilentAimFOV = v end
+})
+
+TabMain:CreateSlider({
+    Name = "Silent Aim Smoothness",
+    Range = {1,20},
+    Increment = 1,
+    Suffix = "lvl",
+    CurrentValue = SilentAimSmoothness,
+    Flag = "SilentAimSmoothness",
+    Callback = function(v) SilentAimSmoothness = v end
+})
+
+local RunService = game:GetService("RunService")
+local Camera = workspace.CurrentCamera
+local Mouse = game.Players.LocalPlayer:GetMouse()
+
+RunService.RenderStepped:Connect(function()
+    if FOVCircle then
+        FOVCircle.Position = UDim2.new(0, Mouse.X, 0, Mouse.Y)
+        FOVCircle.Size = UDim2.new(0, SilentAimFOV*2, 0, SilentAimFOV*2)
+    end
+end)
+
+local function getClosestTarget()
+    local shortest = SilentAimFOV
+    local closest = nil
+    for _, p in pairs(game.Players:GetPlayers()) do
+        if p ~= game.Players.LocalPlayer and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
+            local pos,onScreen = Camera:WorldToViewportPoint(p.Character.HumanoidRootPart.Position)
+            if onScreen then
+                local dist = (Vector2.new(Mouse.X,Mouse.Y)-Vector2.new(pos.X,pos.Y)).Magnitude
+                if dist <= SilentAimFOV and dist < shortest then
+                    shortest = dist
+                    closest = p
+                end
+            end
+        end
+    end
+    return closest
+end
+
+local currentLockedTarget=nil
+local lastNotifyTime=0
+
+RunService.RenderStepped:Connect(function()
+    if not SilentAimEnabled then currentLockedTarget=nil return end
+    local target=getClosestTarget()
+    if target and target.Character and target.Character:FindFirstChild("HumanoidRootPart") then
+        if target~=currentLockedTarget and (tick()-lastNotifyTime)>0.5 then
+            currentLockedTarget=target
+            lastNotifyTime=tick()
+            Rayfield:Notify({Title="Silent Aim",Content="Lockeado a: "..target.Name,Duration=1.6,Image=4483362458})
+        end
+        local camPos=Camera.CFrame.Position
+        local targetPos=target.Character.HumanoidRootPart.Position
+        local look=CFrame.new(camPos,targetPos)
+        Camera.CFrame=Camera.CFrame:Lerp(look,math.clamp(SilentAimSmoothness/20,0.02,0.9))
+    else
+        currentLockedTarget=nil
+    end
+end)
+
+-- =======================
+-- TAB VISUALS (ESP con fix de nuevos jugadores)
+-- =======================
+local TabVisuals = Window:CreateTab("Visuals", 4483362458)
+TabVisuals:CreateSection("ESP")
+
+local ESPEnabled, ShowNames, ShowDistance, ShowHealth = false, false, false, false
+
+local function createESP(player, localPlayer)
+    if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+        local highlight = Instance.new("Highlight")
+        highlight.Parent = player.Character
+        highlight.FillColor = Color3.fromRGB(255, 0, 0)
+        highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
+        highlight.Adornee = player.Character
+
+        local billboard = Instance.new("BillboardGui")
+        billboard.Size = UDim2.new(0, 140, 0, 28)
+        billboard.Adornee = player.Character.HumanoidRootPart
+        billboard.AlwaysOnTop = true
+        billboard.Parent = player.Character
+
+        local textLabel = Instance.new("TextLabel")
+        textLabel.Size = UDim2.new(1, 0, 1, 0)
+        textLabel.BackgroundTransparency = 1
+        textLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+        textLabel.TextStrokeTransparency = 0
+        textLabel.Font = Enum.Font.SourceSansBold
+        textLabel.TextSize = 12
+        textLabel.Parent = billboard
+
+        task.spawn(function()
+            while ESPEnabled and player.Character and player.Character:FindFirstChild("HumanoidRootPart") do
+                local infoParts = {}
+                if ShowNames then table.insert(infoParts, player.Name) end
+                if ShowDistance and localPlayer.Character and localPlayer.Character:FindFirstChild("HumanoidRootPart") then
+                    local dist = (localPlayer.Character.HumanoidRootPart.Position - player.Character.HumanoidRootPart.Position).Magnitude
+                    table.insert(infoParts, tostring(math.floor(dist)) .. " studs")
+                end
+                if ShowHealth and player.Character:FindFirstChild("Humanoid") then
+                    table.insert(infoParts, "HP: " .. tostring(math.floor(player.Character.Humanoid.Health)))
+                end
+                textLabel.Text = #infoParts > 0 and table.concat(infoParts, " | ") or ""
+                task.wait(0.2)
+            end
+        end)
+    end
+end
+
+
+TabVisuals:CreateToggle({
+    Name = "Enable ESP",
+    CurrentValue = false,
+    Flag = "ESP",
+    Callback = function(v)
+        ESPEnabled = v
+        local lp = game.Players.LocalPlayer
+
+        if v then
+            
+            for _, p in pairs(game.Players:GetPlayers()) do
+                if p ~= lp then
+                    createESP(p, lp)
+                    p.CharacterAdded:Connect(function()
+                        if ESPEnabled then
+                            createESP(p, lp)
+                        end
+                    end)
+                end
+            end
+        else
+            
+            for _, p in pairs(game.Players:GetPlayers()) do
+                if p.Character then
+                    for _, c in pairs(p.Character:GetChildren()) do
+                        if c:IsA("Highlight") or c:IsA("BillboardGui") then
+                            c:Destroy()
+                        end
+                    end
+                end
+            end
+        end
+    end
+})
+
+
+game.Players.PlayerAdded:Connect(function(p)
+    local lp = game.Players.LocalPlayer
+    if ESPEnabled then
+        createESP(p, lp)
+        p.CharacterAdded:Connect(function()
+            if ESPEnabled then
+                createESP(p, lp)
+            end
+        end)
+    end
+end)
+
+
+TabVisuals:CreateToggle({Name="Show Names",CurrentValue=false,Flag="Names",Callback=function(v) ShowNames=v end})
+TabVisuals:CreateToggle({Name="Show Distance",CurrentValue=false,Flag="Distance",Callback=function(v) ShowDistance=v end})
+TabVisuals:CreateToggle({Name="Show Health",CurrentValue=false,Flag="Health",Callback=function(v) ShowHealth=v end})
+
+-- =======================
+-- TAB PLAYER
+-- =======================
+local TabPlayer = Window:CreateTab("Player", 4483362458)
+TabPlayer:CreateSection("Player Controls")
+
+
+TabPlayer:CreateSlider({
+    Name = "WalkSpeed",
+    Range = {16,200},
+    Increment = 1,
+    Suffix = "Speed",
+    CurrentValue = 16,
+    Flag = "WalkSpeed",
+    Callback = function(v)
+        local lp = game.Players.LocalPlayer
+        if lp.Character and lp.Character:FindFirstChild("Humanoid") then 
+            lp.Character.Humanoid.WalkSpeed = v 
+        end
+    end
+})
+
+
+TabPlayer:CreateSlider({
+    Name = "JumpPower",
+    Range = {50,300},
+    Increment = 1,
+    Suffix = "Power",
+    CurrentValue = 50,
+    Flag = "JumpPower",
+    Callback = function(v)
+        local lp = game.Players.LocalPlayer
+        if lp.Character and lp.Character:FindFirstChild("Humanoid") then 
+            lp.Character.Humanoid.JumpPower = v 
+        end
+    end
+})
+
+
+local InfiniteJumpEnabled = false
+TabPlayer:CreateToggle({
+    Name = "Infinite Jump",
+    CurrentValue = false,
+    Flag = "InfiniteJump",
+    Callback = function(v) 
+        InfiniteJumpEnabled = v 
+    end
+})
+
+game:GetService("UserInputService").JumpRequest:Connect(function()
+    if InfiniteJumpEnabled then 
+        local lp = game.Players.LocalPlayer 
+        if lp.Character and lp.Character:FindFirstChild("Humanoid") then 
+            lp.Character.Humanoid:ChangeState(Enum.HumanoidStateType.Jumping) 
+        end 
+    end
+end)
+
+-- =======================
+-- TAB GRAPHICS
+-- =======================
+local TabGraphics = Window:CreateTab("Graphics", 4483362458)
+TabGraphics:CreateSection("Optimización Gráfica")
+
+
+TabGraphics:CreateToggle({
+    Name = "Eliminar Texturas",
+    CurrentValue = false,
+    Flag = "NoTextures",
+    Callback = function(v)
+        for _,x in pairs(workspace:GetDescendants()) do 
+            if x:IsA("Texture") or x:IsA("Decal") then 
+                x.Transparency = v and 1 or 0 
+            end 
+        end
+    end
+})
+
+
+TabGraphics:CreateToggle({
+    Name = "Iluminación Clara (día eterno)",
+    CurrentValue = false,
+    Flag = "BrightLighting",
+    Callback = function(v)
+        if v then 
+            Lighting.ClockTime = 12 
+            Lighting.Brightness = 2 
+            Lighting.Ambient = Color3.fromRGB(255,255,255) 
+            Lighting.GlobalShadows = false
+        else 
+            Lighting.ClockTime = originalClockTime 
+            Lighting.Brightness = originalBrightness 
+            Lighting.Ambient = originalAmbient 
+            Lighting.GlobalShadows = originalGlobalShadows 
+        end
+    end
+})
+
+
+TabGraphics:CreateToggle({
+    Name = "Mejora de FPS",
+    CurrentValue = false,
+    Flag = "FPSBoost",
+    Callback = function(v)
+        if v then 
+            settings().Rendering.QualityLevel = Enum.QualityLevel.Level01 
+            Lighting.GlobalShadows = false 
+            Lighting.FogEnd = 9e9
+        else 
+            settings().Rendering.QualityLevel = Enum.QualityLevel.Automatic 
+            Lighting.GlobalShadows = true 
+            Lighting.FogEnd = 1000 
+        end
+    end
+})
