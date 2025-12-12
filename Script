@@ -1,3 +1,4 @@
+
 local MarketplaceService = game:GetService("MarketplaceService")
 local success, info = pcall(function()
 	return MarketplaceService:GetProductInfo(game.PlaceId)
@@ -53,6 +54,9 @@ local Window = Rayfield:CreateWindow({
 	}
 })
 
+-- =======================
+-- TAB MAIN (Silent Aim corregido con toggle de círculo y fix primera persona)
+-- =======================
 local TabMain = Window:CreateTab("Main", 4483362458)
 TabMain:CreateSection("Silent Aim")
 
@@ -95,6 +99,22 @@ TabMain:CreateToggle({
     Callback = function(v)
         ShowCircle = v
         if not v and FOVCircle then FOVCircle:Destroy() FOVCircle=nil end
+        if v and SilentAimEnabled and not FOVCircle then
+            local PlayerGui = game.Players.LocalPlayer:WaitForChild("PlayerGui")
+            local FOVGui = Instance.new("ScreenGui")
+            FOVGui.Name = "FOVGui_Ricardo"
+            FOVGui.Parent = PlayerGui
+            FOVCircle = Instance.new("Frame", FOVGui)
+            FOVCircle.Size = UDim2.new(0, SilentAimFOV*2, 0, SilentAimFOV*2)
+            FOVCircle.AnchorPoint = Vector2.new(0.5,0.5)
+            FOVCircle.Position = UDim2.new(0.5,0,0.5,0)
+            FOVCircle.BackgroundTransparency = 1
+            local stroke = Instance.new("UIStroke", FOVCircle)
+            stroke.Thickness = 2
+            stroke.Color = Color3.fromRGB(0,200,255)
+            local corner = Instance.new("UICorner", FOVCircle)
+            corner.CornerRadius = UDim.new(1,0)
+        end
     end
 })
 
@@ -118,17 +138,36 @@ TabMain:CreateSlider({
     Callback = function(v) SilentAimSmoothness = v end
 })
 
+-- Servicios
 local RunService = game:GetService("RunService")
 local Camera = workspace.CurrentCamera
 local Mouse = game.Players.LocalPlayer:GetMouse()
 
+-- 🔧 Fix: círculo en primera persona (usar centro de pantalla)
 RunService.RenderStepped:Connect(function()
     if FOVCircle then
-        FOVCircle.Position = UDim2.new(0, Mouse.X, 0, Mouse.Y)
+        local lp = game.Players.LocalPlayer
+        local char = lp.Character
+        local humanoid = char and char:FindFirstChild("Humanoid")
+
+        -- Detectar primera persona
+        local inFirstPerson = humanoid and (Camera.Focus.Position - Camera.CFrame.Position).Magnitude < 1
+
+        local posX, posY
+        if inFirstPerson then
+            posX = Camera.ViewportSize.X/2
+            posY = Camera.ViewportSize.Y/2
+        else
+            posX = Mouse.X
+            posY = Mouse.Y
+        end
+
+        FOVCircle.Position = UDim2.new(0, posX, 0, posY)
         FOVCircle.Size = UDim2.new(0, SilentAimFOV*2, 0, SilentAimFOV*2)
     end
 end)
 
+-- Buscar objetivo más cercano dentro del FOV
 local function getClosestTarget()
     local shortest = SilentAimFOV
     local closest = nil
@@ -136,7 +175,7 @@ local function getClosestTarget()
         if p ~= game.Players.LocalPlayer and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
             local pos,onScreen = Camera:WorldToViewportPoint(p.Character.HumanoidRootPart.Position)
             if onScreen then
-                local dist = (Vector2.new(Mouse.X,Mouse.Y)-Vector2.new(pos.X,pos.Y)).Magnitude
+                local dist = (Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2) - Vector2.new(pos.X,pos.Y)).Magnitude
                 if dist <= SilentAimFOV and dist < shortest then
                     shortest = dist
                     closest = p
@@ -147,6 +186,7 @@ local function getClosestTarget()
     return closest
 end
 
+-- Loop de Silent Aim
 local currentLockedTarget=nil
 local lastNotifyTime=0
 
@@ -157,7 +197,12 @@ RunService.RenderStepped:Connect(function()
         if target~=currentLockedTarget and (tick()-lastNotifyTime)>0.5 then
             currentLockedTarget=target
             lastNotifyTime=tick()
-            Rayfield:Notify({Title="Silent Aim",Content="Lockeado a: "..target.Name,Duration=1.6,Image=4483362458})
+            Rayfield:Notify({
+                Title="Silent Aim",
+                Content="Lockeado a: "..target.Name,
+                Duration=1.6,
+                Image=4483362458
+            })
         end
         local camPos=Camera.CFrame.Position
         local targetPos=target.Character.HumanoidRootPart.Position
@@ -169,83 +214,136 @@ RunService.RenderStepped:Connect(function()
 end)
 
 -- =======================
--- TAB VISUALS (ESP con fix de nuevos jugadores)
+-- TAB VISUALS (ESP con Boxes y Tracers)
 -- =======================
 local TabVisuals = Window:CreateTab("Visuals", 4483362458)
 TabVisuals:CreateSection("ESP")
 
 local ESPEnabled, ShowNames, ShowDistance, ShowHealth = false, false, false, false
+local ShowBoxes, ShowTracers, ShowHighlight = false, false, true
 
-local function createESP(player, localPlayer)
-    if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-        local highlight = Instance.new("Highlight")
-        highlight.Parent = player.Character
-        highlight.FillColor = Color3.fromRGB(255, 0, 0)
-        highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
-        highlight.Adornee = player.Character
+local Camera = workspace.CurrentCamera
+local RunService = game:GetService("RunService")
 
-        local billboard = Instance.new("BillboardGui")
-        billboard.Size = UDim2.new(0, 140, 0, 28)
-        billboard.Adornee = player.Character.HumanoidRootPart
-        billboard.AlwaysOnTop = true
-        billboard.Parent = player.Character
-
-        local textLabel = Instance.new("TextLabel")
-        textLabel.Size = UDim2.new(1, 0, 1, 0)
-        textLabel.BackgroundTransparency = 1
-        textLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-        textLabel.TextStrokeTransparency = 0
-        textLabel.Font = Enum.Font.SourceSansBold
-        textLabel.TextSize = 12
-        textLabel.Parent = billboard
-
-        task.spawn(function()
-            while ESPEnabled and player.Character and player.Character:FindFirstChild("HumanoidRootPart") do
-                local infoParts = {}
-                if ShowNames then table.insert(infoParts, player.Name) end
-                if ShowDistance and localPlayer.Character and localPlayer.Character:FindFirstChild("HumanoidRootPart") then
-                    local dist = (localPlayer.Character.HumanoidRootPart.Position - player.Character.HumanoidRootPart.Position).Magnitude
-                    table.insert(infoParts, tostring(math.floor(dist)) .. " studs")
-                end
-                if ShowHealth and player.Character:FindFirstChild("Humanoid") then
-                    table.insert(infoParts, "HP: " .. tostring(math.floor(player.Character.Humanoid.Health)))
-                end
-                textLabel.Text = #infoParts > 0 and table.concat(infoParts, " | ") or ""
-                task.wait(0.2)
-            end
-        end)
-    end
+--  Box
+local function createBox(player)
+    local box = Drawing.new("Square")
+    box.Visible = false
+    box.Color = Color3.fromRGB(0,255,0)
+    box.Thickness = 2
+    box.Filled = false
+    return box
 end
 
+-- Tracer
+local function createTracer(player)
+    local line = Drawing.new("Line")
+    line.Visible = false
+    line.Color = Color3.fromRGB(255,255,0)
+    line.Thickness = 1.5
+    return line
+end
+
+--  ESP 
+local function createESP(player, localPlayer)
+    -- Highlight
+    if ShowHighlight and player.Character then
+        local highlight = Instance.new("Highlight")
+        highlight.Parent = player.Character
+        highlight.FillColor = Color3.fromRGB(255,0,0)
+        highlight.OutlineColor = Color3.fromRGB(255,255,255)
+        highlight.Adornee = player.Character
+        highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop -- 🔥 se ve a través de paredes
+    end
+
+    -- Billboard 
+    local billboard = Instance.new("BillboardGui")
+    billboard.Size = UDim2.new(0,140,0,28)
+    billboard.Adornee = player.Character:WaitForChild("HumanoidRootPart")
+    billboard.AlwaysOnTop = true
+    billboard.Parent = player.Character
+
+    local textLabel = Instance.new("TextLabel")
+    textLabel.Size = UDim2.new(1,0,1,0)
+    textLabel.BackgroundTransparency = 1
+    textLabel.TextColor3 = Color3.fromRGB(255,255,255)
+    textLabel.TextStrokeTransparency = 0
+    textLabel.Font = Enum.Font.SourceSansBold
+    textLabel.TextSize = 12
+    textLabel.Parent = billboard
+
+    -- Box y Tracer
+    local box = createBox(player)
+    local tracer = createTracer(player)
+
+    RunService.RenderStepped:Connect(function()
+        if ESPEnabled and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+            local hrp = player.Character.HumanoidRootPart
+            local pos, onScreen = Camera:WorldToViewportPoint(hrp.Position)
+
+            
+            local infoParts = {}
+            if ShowNames then table.insert(infoParts, player.Name) end
+            if ShowDistance and localPlayer.Character and localPlayer.Character:FindFirstChild("HumanoidRootPart") then
+                local dist = (localPlayer.Character.HumanoidRootPart.Position - hrp.Position).Magnitude
+                table.insert(infoParts, tostring(math.floor(dist)).." studs")
+            end
+            if ShowHealth and player.Character:FindFirstChild("Humanoid") then
+                table.insert(infoParts, "HP: "..tostring(math.floor(player.Character.Humanoid.Health)))
+            end
+            textLabel.Text = #infoParts>0 and table.concat(infoParts," | ") or ""
+
+            -- Box
+            if ShowBoxes and onScreen then
+                local head = player.Character:FindFirstChild("Head")
+                local rootPos = Camera:WorldToViewportPoint(hrp.Position)
+                local headPos = Camera:WorldToViewportPoint(head.Position)
+                local height = math.abs(rootPos.Y - headPos.Y)
+                local width = height/2
+                box.Size = Vector2.new(width, height)
+                box.Position = Vector2.new(rootPos.X - width/2, rootPos.Y - height/2)
+                box.Visible = true
+            else
+                box.Visible = false
+            end
+
+            -- Tracer
+            if ShowTracers and onScreen then
+                tracer.From = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y)
+                tracer.To = Vector2.new(pos.X, pos.Y)
+                tracer.Visible = true
+            else
+                tracer.Visible = false
+            end
+        else
+            box.Visible = false
+            tracer.Visible = false
+        end
+    end)
+end
 
 TabVisuals:CreateToggle({
-    Name = "Enable ESP",
+    Name = "Enable ESP (Turn On/Off to Unbug)",
     CurrentValue = false,
     Flag = "ESP",
     Callback = function(v)
         ESPEnabled = v
         local lp = game.Players.LocalPlayer
-
         if v then
-            
-            for _, p in pairs(game.Players:GetPlayers()) do
-                if p ~= lp then
+            for _,p in pairs(game.Players:GetPlayers()) do
+                if p~=lp then
                     createESP(p, lp)
                     p.CharacterAdded:Connect(function()
-                        if ESPEnabled then
-                            createESP(p, lp)
-                        end
+                        if ESPEnabled then createESP(p, lp) end
                     end)
                 end
             end
         else
-            
-            for _, p in pairs(game.Players:GetPlayers()) do
+            -- limpiar
+            for _,p in pairs(game.Players:GetPlayers()) do
                 if p.Character then
-                    for _, c in pairs(p.Character:GetChildren()) do
-                        if c:IsA("Highlight") or c:IsA("BillboardGui") then
-                            c:Destroy()
-                        end
+                    for _,c in pairs(p.Character:GetChildren()) do
+                        if c:IsA("Highlight") or c:IsA("BillboardGui") then c:Destroy() end
                     end
                 end
             end
@@ -254,80 +352,12 @@ TabVisuals:CreateToggle({
 })
 
 
-game.Players.PlayerAdded:Connect(function(p)
-    local lp = game.Players.LocalPlayer
-    if ESPEnabled then
-        createESP(p, lp)
-        p.CharacterAdded:Connect(function()
-            if ESPEnabled then
-                createESP(p, lp)
-            end
-        end)
-    end
-end)
-
-
 TabVisuals:CreateToggle({Name="Show Names",CurrentValue=false,Flag="Names",Callback=function(v) ShowNames=v end})
 TabVisuals:CreateToggle({Name="Show Distance",CurrentValue=false,Flag="Distance",Callback=function(v) ShowDistance=v end})
 TabVisuals:CreateToggle({Name="Show Health",CurrentValue=false,Flag="Health",Callback=function(v) ShowHealth=v end})
-
--- =======================
--- TAB PLAYER
--- =======================
-local TabPlayer = Window:CreateTab("Player", 4483362458)
-TabPlayer:CreateSection("Player Controls")
-
-
-TabPlayer:CreateSlider({
-    Name = "WalkSpeed",
-    Range = {16,200},
-    Increment = 1,
-    Suffix = "Speed",
-    CurrentValue = 16,
-    Flag = "WalkSpeed",
-    Callback = function(v)
-        local lp = game.Players.LocalPlayer
-        if lp.Character and lp.Character:FindFirstChild("Humanoid") then 
-            lp.Character.Humanoid.WalkSpeed = v 
-        end
-    end
-})
-
-
-TabPlayer:CreateSlider({
-    Name = "JumpPower",
-    Range = {50,300},
-    Increment = 1,
-    Suffix = "Power",
-    CurrentValue = 50,
-    Flag = "JumpPower",
-    Callback = function(v)
-        local lp = game.Players.LocalPlayer
-        if lp.Character and lp.Character:FindFirstChild("Humanoid") then 
-            lp.Character.Humanoid.JumpPower = v 
-        end
-    end
-})
-
-
-local InfiniteJumpEnabled = false
-TabPlayer:CreateToggle({
-    Name = "Infinite Jump",
-    CurrentValue = false,
-    Flag = "InfiniteJump",
-    Callback = function(v) 
-        InfiniteJumpEnabled = v 
-    end
-})
-
-game:GetService("UserInputService").JumpRequest:Connect(function()
-    if InfiniteJumpEnabled then 
-        local lp = game.Players.LocalPlayer 
-        if lp.Character and lp.Character:FindFirstChild("Humanoid") then 
-            lp.Character.Humanoid:ChangeState(Enum.HumanoidStateType.Jumping) 
-        end 
-    end
-end)
+TabVisuals:CreateToggle({Name="Show Boxes",CurrentValue=false,Flag="Boxes",Callback=function(v) ShowBoxes=v end})
+TabVisuals:CreateToggle({Name="Show Tracers",CurrentValue=false,Flag="Tracers",Callback=function(v) ShowTracers=v end})
+TabVisuals:CreateToggle({Name="Show Highlight",CurrentValue=true,Flag="Highlight",Callback=function(v) ShowHighlight=v end})
 
 -- =======================
 -- TAB GRAPHICS
