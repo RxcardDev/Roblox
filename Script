@@ -82,7 +82,8 @@ local SilentAimEnabled = false
 local ShowCircle = true
 local SilentAimFOV = 150
 local SilentAimSmoothness = 8
-local WallCheckEnabled = true -- ✅ Toggle inicial
+local WallCheckEnabled = true
+local AimTargetPart = "HumanoidRootPart" -- ✅ Dropdown inicial
 
 local FOVCircle
 local FOVGui
@@ -189,7 +190,6 @@ TabMain:CreateSlider({
     Callback = function(v) SilentAimSmoothness = v end
 })
 
--- ✅ Nuevo toggle de Wall Check
 TabMain:CreateToggle({
     Name = "Wall Check",
     CurrentValue = true,
@@ -198,10 +198,21 @@ TabMain:CreateToggle({
     end
 })
 
+-- ✅ Nuevo Dropdown para elegir parte del cuerpo
+TabMain:CreateDropdown({
+    Name = "Aim Target",
+    Options = {"HumanoidRootPart","Head"},
+    CurrentOption = "HumanoidRootPart",
+    Callback = function(v)
+        AimTargetPart = v
+    end
+})
+
 -- =======================
 -- Wall Check Function
 -- =======================
 local function IsVisible(targetPart)
+    if not targetPart then return false end
     local origin = Camera.CFrame.Position
     local direction = (targetPart.Position - origin)
     local raycastParams = RaycastParams.new()
@@ -236,16 +247,17 @@ local function getClosestTarget()
     local closest = nil
 
     for _, p in ipairs(Players:GetPlayers()) do
-        if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
-            local hrp = p.Character.HumanoidRootPart
-            local pos,onScreen = Camera:WorldToViewportPoint(hrp.Position)
-            if onScreen then
-                local dist = (center - Vector2.new(pos.X,pos.Y)).Magnitude
-                if dist <= SilentAimFOV and dist < shortest then
-                    -- ✅ Wall Check solo si está activado
-                    if not WallCheckEnabled or IsVisible(hrp) then
-                        shortest = dist
-                        closest = p
+        if p ~= LocalPlayer and p.Character then
+            local targetPart = p.Character:FindFirstChild(AimTargetPart)
+            if targetPart then
+                local pos,onScreen = Camera:WorldToViewportPoint(targetPart.Position)
+                if onScreen then
+                    local dist = (center - Vector2.new(pos.X,pos.Y)).Magnitude
+                    if dist <= SilentAimFOV and dist < shortest then
+                        if not WallCheckEnabled or IsVisible(targetPart) then
+                            shortest = dist
+                            closest = p
+                        end
                     end
                 end
             end
@@ -255,7 +267,20 @@ local function getClosestTarget()
 end
 
 -- =======================
--- Silent Aim Loop
+-- Extra Toggle: Aim at Head
+-- =======================
+local AimAtHead = false
+
+TabMain:CreateToggle({
+    Name = "Aim at Head",
+    CurrentValue = false,
+    Callback = function(v)
+        AimAtHead = v
+    end
+})
+
+-- =======================
+-- Silent Aim Loop (modificado)
 -- =======================
 RunService.RenderStepped:Connect(function()
     if FOVCircle and ShowCircle then
@@ -267,21 +292,31 @@ RunService.RenderStepped:Connect(function()
     if not SilentAimEnabled then currentLockedTarget=nil return end
 
     local target = getClosestTarget()
-    if target and target.Character and target.Character:FindFirstChild("HumanoidRootPart") then
-        if target ~= currentLockedTarget and (tick()-lastNotifyTime)>0.5 then
-            currentLockedTarget = target
-            lastNotifyTime = tick()
-            Rayfield:Notify({
-                Title="Silent Aim",
-                Content="Locked on: "..target.Name,
-                Duration=1.6,
-                Image=4483362458
-            })
+    if target and target.Character then
+        -- ✅ Elegir parte según toggle
+        local targetPart
+        if AimAtHead then
+            targetPart = target.Character:FindFirstChild("Head")
+        else
+            targetPart = target.Character:FindFirstChild("HumanoidRootPart")
         end
-        local camPos = Camera.CFrame.Position
-        local targetPos = target.Character.HumanoidRootPart.Position
-        local look = CFrame.new(camPos,targetPos)
-        Camera.CFrame = Camera.CFrame:Lerp(look, math.clamp(SilentAimSmoothness/20,0.02,0.9))
+
+        if targetPart then
+            if target ~= currentLockedTarget and (tick()-lastNotifyTime)>0.5 then
+                currentLockedTarget = target
+                lastNotifyTime = tick()
+                Rayfield:Notify({
+                    Title="Silent Aim",
+                    Content="Locked on: "..target.Name..(AimAtHead and " (Head)" or " (HRP)"),
+                    Duration=1.6,
+                    Image=4483362458
+                })
+            end
+            local camPos = Camera.CFrame.Position
+            local targetPos = targetPart.Position
+            local look = CFrame.new(camPos,targetPos)
+            Camera.CFrame = Camera.CFrame:Lerp(look, math.clamp(SilentAimSmoothness/20,0.02,0.9))
+        end
     else
         currentLockedTarget=nil
     end
