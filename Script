@@ -82,6 +82,7 @@ local SilentAimEnabled = false
 local ShowCircle = true
 local SilentAimFOV = 150
 local SilentAimSmoothness = 8
+local WallCheckEnabled = true -- ✅ Toggle inicial
 
 local FOVCircle
 local FOVGui
@@ -98,7 +99,7 @@ local function createCircle()
     local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
     FOVGui = Instance.new("ScreenGui")
     FOVGui.Name = "FOVGui_Ricardo"
-    FOVGui.ResetOnSpawn = false -- 🔧 prevents deletion on respawn
+    FOVGui.ResetOnSpawn = false
     FOVGui.IgnoreGuiInset = true
     FOVGui.DisplayOrder = 9999
     FOVGui.Parent = PlayerGui
@@ -125,7 +126,6 @@ local function destroyCircle()
     if FOVGui then FOVGui:Destroy() FOVGui = nil end
 end
 
--- Recreate circle on respawn
 LocalPlayer.CharacterAdded:Connect(function()
     task.delay(0.25, function()
         if ShowCircle and SilentAimEnabled then
@@ -189,6 +189,32 @@ TabMain:CreateSlider({
     Callback = function(v) SilentAimSmoothness = v end
 })
 
+-- ✅ Nuevo toggle de Wall Check
+TabMain:CreateToggle({
+    Name = "Wall Check",
+    CurrentValue = true,
+    Callback = function(v)
+        WallCheckEnabled = v
+    end
+})
+
+-- =======================
+-- Wall Check Function
+-- =======================
+local function IsVisible(targetPart)
+    local origin = Camera.CFrame.Position
+    local direction = (targetPart.Position - origin)
+    local raycastParams = RaycastParams.new()
+    raycastParams.FilterDescendantsInstances = {LocalPlayer.Character}
+    raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
+
+    local result = workspace:Raycast(origin, direction, raycastParams)
+    if result then
+        return result.Instance:IsDescendantOf(targetPart.Parent)
+    end
+    return true
+end
+
 -- =======================
 -- Target Selection
 -- =======================
@@ -216,8 +242,11 @@ local function getClosestTarget()
             if onScreen then
                 local dist = (center - Vector2.new(pos.X,pos.Y)).Magnitude
                 if dist <= SilentAimFOV and dist < shortest then
-                    shortest = dist
-                    closest = p
+                    -- ✅ Wall Check solo si está activado
+                    if not WallCheckEnabled or IsVisible(hrp) then
+                        shortest = dist
+                        closest = p
+                    end
                 end
             end
         end
@@ -229,14 +258,12 @@ end
 -- Silent Aim Loop
 -- =======================
 RunService.RenderStepped:Connect(function()
-    -- Update circle position
     if FOVCircle and ShowCircle then
         local center = getFOVCenter()
         FOVCircle.Position = UDim2.new(0, center.X, 0, center.Y)
         FOVCircle.Size = UDim2.new(0, SilentAimFOV*2, 0, SilentAimFOV*2)
     end
 
-    -- Aim logic
     if not SilentAimEnabled then currentLockedTarget=nil return end
 
     local target = getClosestTarget()
@@ -259,7 +286,6 @@ RunService.RenderStepped:Connect(function()
         currentLockedTarget=nil
     end
 end)
-
 -- =======================
 -- TAB VISUALS (ESP con Boxes y Tracers)
 -- =======================
