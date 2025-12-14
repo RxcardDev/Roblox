@@ -1,12 +1,17 @@
 
+if setclipboard then
+    setclipboard("https://loot-link.com/s?Vv9hbwuo")
+end
+
+
 local MarketplaceService = game:GetService("MarketplaceService")
 local success, info = pcall(function()
-	return MarketplaceService:GetProductInfo(game.PlaceId)
+    return MarketplaceService:GetProductInfo(game.PlaceId)
 end)
 
 local gameName = "Unknown Game"
 if success and info and info.Name then
-	gameName = info.Name
+    gameName = info.Name
 end
 
 
@@ -21,39 +26,48 @@ local Rayfield = loadstring(game:HttpGet("https://sirius.menu/rayfield"))()
 
 
 local Window = Rayfield:CreateWindow({
-	Name = "Script for " .. gameName,
-	LoadingTitle = "Rayfield Interface Suite",
-	LoadingSubtitle = "by Ricardito",
-	ShowText = "Rayfield",
-	Theme = "Default",
-	ToggleUIKeybind = "K",
-	DisableRayfieldPrompts = false,
-	DisableBuildWarnings = false,
+    Name = "Femboy Hub | " .. gameName,
+    LoadingTitle = "Ricardo's Interface Suite",
+    LoadingSubtitle = "Custom Scripts & Features",
+    ShowText = "FemboyHub",
+    Theme = "Bloom", -- 🔧 Tema gris oscuro (estable)
+    ToggleUIKeybind = Enum.KeyCode.RightShift,
+    DisableRayfieldPrompts = false,
+    DisableBuildWarnings = true,
 
-	ConfigurationSaving = {
-		Enabled = true,
-		FolderName = nil,
-		FileName = "Big Hub"
-	},
+    ConfigurationSaving = {
+        Enabled = true,
+        FolderName = "FemboyHubConfigs",
+        FileName = gameName .. "_Config"
+    },
 
-	Discord = {
-		Enabled = true,
-		Invite = "sDkYFJ6S",
-		RememberJoins = true
-	},
+    Discord = {
+        Enabled = true,
+        Invite = "https://lootdest.org/s?nJeb407y", -- 🔧 Loot Labs
+        RememberJoins = true
+    },
 
-	KeySystem = true,
-	KeySettings = {
-		Title = "Script for " .. gameName .. " Key System",
-		Subtitle = "Acceso restringido",
-		Note = "Únete al servidor de Discord para obtener la key",
-		FileName = "BaboonTagXKey",
-		SaveKey = false,
-		GrabKeyFromSite = false,
-		Key = {"RicardoKey123"}
-	}
+    KeySystem = true,
+    KeySettings = {
+        Title = "Femboy Hub Access",
+        Subtitle = "Restricted Entry",
+        Note = "Complete Loot Labs Link to get your key (link Already Copied)",
+        FileName = "FemboyHubKey",
+        SaveKey = false, -- 🔧 No guarda la key
+        GrabKeyFromSite = false,
+        Key = {"RicardoKey123"}
+    }
 })
 
+
+task.delay(0.5, function()
+    Rayfield:Notify({
+        Title = "System",
+        Content = "Script Sucefully Loaded✅",
+        Duration = 4,
+        Image = 4483362458
+    })
+end)
 
 -- =======================
 -- Silent Aim Variables
