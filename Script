@@ -54,66 +54,100 @@ local Window = Rayfield:CreateWindow({
 	}
 })
 
+
 -- =======================
--- TAB MAIN (Silent Aim corregido con toggle de círculo y fix primera persona)
+-- Silent Aim Variables
+-- =======================
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local RunService = game:GetService("RunService")
+local Camera = workspace.CurrentCamera
+local Mouse = LocalPlayer:GetMouse()
+
+local SilentAimEnabled = false
+local ShowCircle = true
+local SilentAimFOV = 150
+local SilentAimSmoothness = 8
+
+local FOVCircle
+local FOVGui
+local currentLockedTarget = nil
+local lastNotifyTime = 0
+
+-- =======================
+-- Circle Creation
+-- =======================
+local function createCircle()
+    if FOVCircle then FOVCircle:Destroy() FOVCircle = nil end
+    if FOVGui then FOVGui:Destroy() FOVGui = nil end
+
+    local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
+    FOVGui = Instance.new("ScreenGui")
+    FOVGui.Name = "FOVGui_Ricardo"
+    FOVGui.ResetOnSpawn = false -- 🔧 prevents deletion on respawn
+    FOVGui.IgnoreGuiInset = true
+    FOVGui.DisplayOrder = 9999
+    FOVGui.Parent = PlayerGui
+
+    FOVCircle = Instance.new("Frame")
+    FOVCircle.Size = UDim2.new(0, SilentAimFOV*2, 0, SilentAimFOV*2)
+    FOVCircle.AnchorPoint = Vector2.new(0.5,0.5)
+    FOVCircle.Position = UDim2.new(0.5,0,0.5,0)
+    FOVCircle.BackgroundTransparency = 1
+    FOVCircle.Parent = FOVGui
+
+    local stroke = Instance.new("UIStroke")
+    stroke.Thickness = 2
+    stroke.Color = Color3.fromRGB(0,200,255)
+    stroke.Parent = FOVCircle
+
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(1,0)
+    corner.Parent = FOVCircle
+end
+
+local function destroyCircle()
+    if FOVCircle then FOVCircle:Destroy() FOVCircle = nil end
+    if FOVGui then FOVGui:Destroy() FOVGui = nil end
+end
+
+-- Recreate circle on respawn
+LocalPlayer.CharacterAdded:Connect(function()
+    task.delay(0.25, function()
+        if ShowCircle and SilentAimEnabled then
+            createCircle()
+        end
+    end)
+end)
+
+-- =======================
+-- Rayfield UI
 -- =======================
 local TabMain = Window:CreateTab("Main", 4483362458)
 TabMain:CreateSection("Silent Aim")
 
-local SilentAimEnabled = false
-local SilentAimFOV = 120
-local SilentAimSmoothness = 8
-local ShowCircle = true
-local FOVCircle
-
 TabMain:CreateToggle({
     Name = "Enable Silent Aim",
     CurrentValue = false,
-    Flag = "SilentAim",
     Callback = function(v)
         SilentAimEnabled = v
-        if FOVCircle and FOVCircle.Parent then FOVCircle:Destroy() FOVCircle=nil end
         if v and ShowCircle then
-            local PlayerGui = game.Players.LocalPlayer:WaitForChild("PlayerGui")
-            local FOVGui = Instance.new("ScreenGui")
-            FOVGui.Name = "FOVGui_Ricardo"
-            FOVGui.Parent = PlayerGui
-            FOVCircle = Instance.new("Frame", FOVGui)
-            FOVCircle.Size = UDim2.new(0, SilentAimFOV*2, 0, SilentAimFOV*2)
-            FOVCircle.AnchorPoint = Vector2.new(0.5,0.5)
-            FOVCircle.Position = UDim2.new(0.5,0,0.5,0)
-            FOVCircle.BackgroundTransparency = 1
-            local stroke = Instance.new("UIStroke", FOVCircle)
-            stroke.Thickness = 2
-            stroke.Color = Color3.fromRGB(0,200,255)
-            local corner = Instance.new("UICorner", FOVCircle)
-            corner.CornerRadius = UDim.new(1,0)
+            createCircle()
+        else
+            destroyCircle()
         end
     end
 })
 
 TabMain:CreateToggle({
-    Name = "Mostrar círculo",
+    Name = "Show Circle",
     CurrentValue = true,
-    Flag = "ShowCircle",
     Callback = function(v)
         ShowCircle = v
-        if not v and FOVCircle then FOVCircle:Destroy() FOVCircle=nil end
-        if v and SilentAimEnabled and not FOVCircle then
-            local PlayerGui = game.Players.LocalPlayer:WaitForChild("PlayerGui")
-            local FOVGui = Instance.new("ScreenGui")
-            FOVGui.Name = "FOVGui_Ricardo"
-            FOVGui.Parent = PlayerGui
-            FOVCircle = Instance.new("Frame", FOVGui)
-            FOVCircle.Size = UDim2.new(0, SilentAimFOV*2, 0, SilentAimFOV*2)
-            FOVCircle.AnchorPoint = Vector2.new(0.5,0.5)
-            FOVCircle.Position = UDim2.new(0.5,0,0.5,0)
-            FOVCircle.BackgroundTransparency = 1
-            local stroke = Instance.new("UIStroke", FOVCircle)
-            stroke.Thickness = 2
-            stroke.Color = Color3.fromRGB(0,200,255)
-            local corner = Instance.new("UICorner", FOVCircle)
-            corner.CornerRadius = UDim.new(1,0)
+        if not v then
+            destroyCircle()
+        elseif v and SilentAimEnabled then
+            createCircle()
         end
     end
 })
@@ -124,8 +158,12 @@ TabMain:CreateSlider({
     Increment = 10,
     Suffix = "px",
     CurrentValue = SilentAimFOV,
-    Flag = "SilentAimFOV",
-    Callback = function(v) SilentAimFOV = v end
+    Callback = function(v)
+        SilentAimFOV = v
+        if FOVCircle then
+            FOVCircle.Size = UDim2.new(0, SilentAimFOV*2, 0, SilentAimFOV*2)
+        end
+    end
 })
 
 TabMain:CreateSlider({
@@ -134,48 +172,35 @@ TabMain:CreateSlider({
     Increment = 1,
     Suffix = "lvl",
     CurrentValue = SilentAimSmoothness,
-    Flag = "SilentAimSmoothness",
     Callback = function(v) SilentAimSmoothness = v end
 })
 
--- Servicios
-local RunService = game:GetService("RunService")
-local Camera = workspace.CurrentCamera
-local Mouse = game.Players.LocalPlayer:GetMouse()
+-- =======================
+-- Target Selection
+-- =======================
+local function getFOVCenter()
+    local char = LocalPlayer.Character
+    local hum = char and char:FindFirstChildOfClass("Humanoid")
+    local inFirstPerson = hum and (Camera.Focus.Position - Camera.CFrame.Position).Magnitude < 1
 
--- 🔧 Fix: círculo en primera persona (usar centro de pantalla)
-RunService.RenderStepped:Connect(function()
-    if FOVCircle then
-        local lp = game.Players.LocalPlayer
-        local char = lp.Character
-        local humanoid = char and char:FindFirstChild("Humanoid")
-
-        -- Detectar primera persona
-        local inFirstPerson = humanoid and (Camera.Focus.Position - Camera.CFrame.Position).Magnitude < 1
-
-        local posX, posY
-        if inFirstPerson then
-            posX = Camera.ViewportSize.X/2
-            posY = Camera.ViewportSize.Y/2
-        else
-            posX = Mouse.X
-            posY = Mouse.Y
-        end
-
-        FOVCircle.Position = UDim2.new(0, posX, 0, posY)
-        FOVCircle.Size = UDim2.new(0, SilentAimFOV*2, 0, SilentAimFOV*2)
+    if inFirstPerson then
+        return Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)
+    else
+        return Vector2.new(Mouse.X, Mouse.Y)
     end
-end)
+end
 
--- Buscar objetivo más cercano dentro del FOV
 local function getClosestTarget()
+    local center = getFOVCenter()
     local shortest = SilentAimFOV
     local closest = nil
-    for _, p in pairs(game.Players:GetPlayers()) do
-        if p ~= game.Players.LocalPlayer and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
-            local pos,onScreen = Camera:WorldToViewportPoint(p.Character.HumanoidRootPart.Position)
+
+    for _, p in ipairs(Players:GetPlayers()) do
+        if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
+            local hrp = p.Character.HumanoidRootPart
+            local pos,onScreen = Camera:WorldToViewportPoint(hrp.Position)
             if onScreen then
-                local dist = (Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2) - Vector2.new(pos.X,pos.Y)).Magnitude
+                local dist = (center - Vector2.new(pos.X,pos.Y)).Magnitude
                 if dist <= SilentAimFOV and dist < shortest then
                     shortest = dist
                     closest = p
@@ -186,28 +211,36 @@ local function getClosestTarget()
     return closest
 end
 
--- Loop de Silent Aim
-local currentLockedTarget=nil
-local lastNotifyTime=0
-
+-- =======================
+-- Silent Aim Loop
+-- =======================
 RunService.RenderStepped:Connect(function()
+    -- Update circle position
+    if FOVCircle and ShowCircle then
+        local center = getFOVCenter()
+        FOVCircle.Position = UDim2.new(0, center.X, 0, center.Y)
+        FOVCircle.Size = UDim2.new(0, SilentAimFOV*2, 0, SilentAimFOV*2)
+    end
+
+    -- Aim logic
     if not SilentAimEnabled then currentLockedTarget=nil return end
-    local target=getClosestTarget()
+
+    local target = getClosestTarget()
     if target and target.Character and target.Character:FindFirstChild("HumanoidRootPart") then
-        if target~=currentLockedTarget and (tick()-lastNotifyTime)>0.5 then
-            currentLockedTarget=target
-            lastNotifyTime=tick()
+        if target ~= currentLockedTarget and (tick()-lastNotifyTime)>0.5 then
+            currentLockedTarget = target
+            lastNotifyTime = tick()
             Rayfield:Notify({
                 Title="Silent Aim",
-                Content="Lockeado a: "..target.Name,
+                Content="Locked on: "..target.Name,
                 Duration=1.6,
                 Image=4483362458
             })
         end
-        local camPos=Camera.CFrame.Position
-        local targetPos=target.Character.HumanoidRootPart.Position
-        local look=CFrame.new(camPos,targetPos)
-        Camera.CFrame=Camera.CFrame:Lerp(look,math.clamp(SilentAimSmoothness/20,0.02,0.9))
+        local camPos = Camera.CFrame.Position
+        local targetPos = target.Character.HumanoidRootPart.Position
+        local look = CFrame.new(camPos,targetPos)
+        Camera.CFrame = Camera.CFrame:Lerp(look, math.clamp(SilentAimSmoothness/20,0.02,0.9))
     else
         currentLockedTarget=nil
     end
