@@ -1,6 +1,8 @@
+
 if setclipboard then
     setclipboard("https://loot-link.com/s?Vv9hbwuo")
 end
+
 
 local MarketplaceService = game:GetService("MarketplaceService")
 local success, info = pcall(function()
@@ -12,27 +14,37 @@ if success and info and info.Name then
     gameName = info.Name
 end
 
+
 local Lighting = game:GetService("Lighting")
 local originalClockTime = Lighting.ClockTime
 local originalBrightness = Lighting.Brightness
 local originalAmbient = Lighting.Ambient
 local originalGlobalShadows = Lighting.GlobalShadows
 
+
 local Rayfield = loadstring(game:HttpGet("https://sirius.menu/rayfield"))()
-local baboonTagPlaceId = 73908022013371
+
 
 local Window = Rayfield:CreateWindow({
     Name = "Femboy Hub | " .. gameName,
     LoadingTitle = "Ricardo's Interface Suite",
     LoadingSubtitle = "Custom Scripts & Features",
-    Theme = "Bloom", -- Tema compatible con Delta
+    ShowText = "FemboyHub",
+    Theme = "Bloom", -- 🔧 Tema gris oscuro (estable)
     ToggleUIKeybind = Enum.KeyCode.RightShift,
     DisableRayfieldPrompts = false,
+    DisableBuildWarnings = true,
 
     ConfigurationSaving = {
         Enabled = true,
         FolderName = "FemboyHubConfigs",
         FileName = gameName .. "_Config"
+    },
+
+    Discord = {
+        Enabled = true,
+        Invite = "https://lootdest.org/s?nJeb407y", -- 🔧 Loot Labs
+        RememberJoins = true
     },
 
     KeySystem = true,
@@ -41,20 +53,22 @@ local Window = Rayfield:CreateWindow({
         Subtitle = "Restricted Entry",
         Note = "Complete Loot Labs Link to get your key (link Already Copied)",
         FileName = "FemboyHubKey",
-        SaveKey = false,
+        SaveKey = false, -- 🔧 No guarda la key
         GrabKeyFromSite = false,
-        Key = {"RicardoKey123"} 
+        Key = {"RicardoKey123"}
     }
 })
+
 
 task.delay(0.5, function()
     Rayfield:Notify({
         Title = "System",
-        Content = "Script Successfully Loaded ✅",
+        Content = "Script Sucefully Loaded✅",
         Duration = 4,
         Image = 4483362458
     })
 end)
+
 -- =======================
 -- Silent Aim Variables
 -- =======================
@@ -200,6 +214,46 @@ local function IsVisible(targetPart)
         return result.Instance:IsDescendantOf(targetPart.Parent)
     end
     return true
+end
+
+-- =======================
+-- Target Selection
+-- =======================
+local function getFOVCenter()
+    local char = LocalPlayer.Character
+    local hum = char and char:FindFirstChildOfClass("Humanoid")
+    local inFirstPerson = hum and (Camera.Focus.Position - Camera.CFrame.Position).Magnitude < 1
+
+    if inFirstPerson then
+        return Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)
+    else
+        return Vector2.new(Mouse.X, Mouse.Y)
+    end
+end
+
+local function getClosestTarget()
+    local center = getFOVCenter()
+    local shortest = SilentAimFOV
+    local closest = nil
+
+    for _, p in ipairs(Players:GetPlayers()) do
+        if p ~= LocalPlayer and p.Character then
+            local targetPart = p.Character:FindFirstChild(AimTargetPart)
+            if targetPart then
+                local pos,onScreen = Camera:WorldToViewportPoint(targetPart.Position)
+                if onScreen then
+                    local dist = (center - Vector2.new(pos.X,pos.Y)).Magnitude
+                    if dist <= SilentAimFOV and dist < shortest then
+                        if not WallCheckEnabled or IsVisible(targetPart) then
+                            shortest = dist
+                            closest = p
+                        end
+                    end
+                end
+            end
+        end
+    end
+    return closest
 end
 
 -- =======================
