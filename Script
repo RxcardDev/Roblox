@@ -184,16 +184,6 @@ TabMain:CreateToggle({
     end
 })
 
--- ✅ Nuevo Dropdown para elegir parte del cuerpo
-TabMain:CreateDropdown({
-    Name = "Aim Target",
-    Options = {"HumanoidRootPart","Head"},
-    CurrentOption = "HumanoidRootPart",
-    Callback = function(v)
-        AimTargetPart = v
-    end
-})
-
 -- =======================
 -- Wall Check Function
 -- =======================
