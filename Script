@@ -84,7 +84,7 @@ local ShowCircle = true
 local SilentAimFOV = 150
 local SilentAimSmoothness = 8
 local WallCheckEnabled = true
-local AimTargetPart = "HumanoidRootPart" -- ✅ Dropdown inicial
+local AimTargetPart = "HumanoidRootPart" 
 
 local FOVCircle
 local FOVGui
@@ -201,7 +201,7 @@ TabMain:CreateToggle({
 
 -- ✅ Nuevo Dropdown para elegir parte del cuerpo
 TabMain:CreateDropdown({
-    Name = "Aim Target",
+    Name = "Aim Target (Broken)",
     Options = {"HumanoidRootPart","Head"},
     CurrentOption = "HumanoidRootPart",
     Callback = function(v)
