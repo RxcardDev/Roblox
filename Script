@@ -43,11 +43,10 @@ local Window = Rayfield:CreateWindow({
         FileName = "FemboyHubKey",
         SaveKey = false,
         GrabKeyFromSite = false,
-        Key = {"RicardoKey123"} -- 🔑 Tu key personalizada
+        Key = {"RicardoKey123"} 
     }
 })
 
--- ✅ Confirmación visual de carga
 task.delay(0.5, function()
     Rayfield:Notify({
         Title = "System",
