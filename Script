@@ -1,4 +1,5 @@
 
+--Flick Script--
 if setclipboard then
     setclipboard("https://loot-link.com/s?Vv9hbwuo")
 end
@@ -195,6 +196,16 @@ TabMain:CreateToggle({
     CurrentValue = true,
     Callback = function(v)
         WallCheckEnabled = v
+    end
+})
+
+-- ✅ Nuevo Dropdown para elegir parte del cuerpo
+TabMain:CreateDropdown({
+    Name = "Aim Target",
+    Options = {"HumanoidRootPart","Head"},
+    CurrentOption = "HumanoidRootPart",
+    Callback = function(v)
+        AimTargetPart = v
     end
 })
 
