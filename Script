@@ -476,7 +476,7 @@ TabGraphics:CreateSection("Optimización Gráfica")
 
 
 TabGraphics:CreateToggle({
-    Name = "Eliminar Texturas",
+    Name = "Delete Textures",
     CurrentValue = false,
     Flag = "NoTextures",
     Callback = function(v)
@@ -490,7 +490,7 @@ TabGraphics:CreateToggle({
 
 
 TabGraphics:CreateToggle({
-    Name = "Iluminación Clara (día eterno)",
+    Name = "Ilumination",
     CurrentValue = false,
     Flag = "BrightLighting",
     Callback = function(v)
@@ -510,7 +510,7 @@ TabGraphics:CreateToggle({
 
 
 TabGraphics:CreateToggle({
-    Name = "Mejora de FPS",
+    Name = "Fps Boost",
     CurrentValue = false,
     Flag = "FPSBoost",
     Callback = function(v)
